@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
 export function AccountPage() {
-  const { logout } = useAuth();
+  const { logout, roles } = useAuth();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -24,6 +24,7 @@ export function AccountPage() {
       <p className="eyebrow teal">АККАУНТ</p>
       <h1>Ты в Tusumba!</h1>
       <p className="muted">Авторизация работает. Страницы каталога, билетов и профиля будут подключены в следующих задачах.</p>
+      {roles.includes('moderator') && <p><Link to="/moderation/applications" className="mod-action">Перейти к заявкам модератора</Link></p>}
       {error && <p role="alert" className="form-error">{error}</p>}
       <button type="button" className="primary-button" onClick={() => void handleLogout()} disabled={busy}>{busy ? 'Выходим…' : 'Выйти из аккаунта'}</button>
     </section>

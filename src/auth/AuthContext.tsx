@@ -7,6 +7,7 @@ type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 
 type AuthContextValue = {
   status: AuthStatus;
+  roles: string[];
   login: (login: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -19,9 +20,10 @@ function statusFromSession(): AuthStatus {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>(session.hasSession() ? 'loading' : 'anonymous');
+  const [roles, setRoles] = useState<string[]>(session.getRoles());
 
   useEffect(() => {
-    const unsubscribe = session.subscribe(() => setStatus(statusFromSession()));
+    const unsubscribe = session.subscribe(() => { setStatus(statusFromSession()); setRoles(session.getRoles()); });
     if (session.hasSession() && !session.hasActiveAccess()) {
       void session.refresh().then(() => setStatus('authenticated')).catch(() => setStatus('anonymous'));
     }
@@ -30,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const context = useMemo<AuthContextValue>(() => ({
     status,
+    roles,
     login: async (identity, password) => {
       const { data, error } = await publicApi.POST('/v1/auth/login', {
         body: { login: identity.trim(), password },
@@ -45,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus('anonymous');
       }
     },
-  }), [status]);
+  }), [status, roles]);
 
   return <AuthContext.Provider value={context}>{children}</AuthContext.Provider>;
 }

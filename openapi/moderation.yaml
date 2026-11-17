@@ -1,0 +1,211 @@
+openapi: 3.0.3
+info:
+  title: Tusumba Moderation API (web slice #19065)
+  version: 1.0.0
+  description: |
+    Срез согласованного API из tusumba/moderation-service/docs/openapi.yaml (main).
+    Источник истины — полная спецификация в репозитории moderation-service.
+    В срез входят только чтение заявок и принятие решения модератором.
+servers:
+  - url: /
+security:
+  - BearerAuth: []
+paths:
+  /v1/moderation/applications:
+    get:
+      operationId: listApplicationsForModeration
+      description: По умолчанию on_review, старые первыми. Только moderator.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ApplicationStatus'
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/ApplicationType'
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Страница заявок
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationPage' }
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: Требуется роль moderator
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /v1/moderation/applications/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getApplicationForModeration
+      responses:
+        '200':
+          description: Карточка заявки
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Application' }
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: Требуется роль moderator
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Заявка не найдена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /v1/moderation/applications/{id}/decision:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: decideApplication
+      description: |
+        Решение только для on_review. При 409 заявка уже обработана другим модератором.
+        При отказе comment обязателен и до 1000 символов.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApplicationDecisionRequest' }
+      responses:
+        '200':
+          description: Решение сохранено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Application' }
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: Требуется роль moderator
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Заявка не найдена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Заявка уже обработана
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: Ошибка валидации решения
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+components:
+  securitySchemes:
+    BearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    ApplicationStatus:
+      type: string
+      enum: [on_review, approved, rejected]
+    ApplicationType:
+      type: string
+      enum: [event, club_page]
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount: { type: integer, minimum: 0 }
+        currency: { type: string, enum: [RUB] }
+    EventApplicationData:
+      type: object
+      required: [title, description, date, place_address, is_free]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, minLength: 1, maxLength: 1000 }
+        date: { type: string, format: date }
+        place_address: { type: string, minLength: 1, maxLength: 500 }
+        is_free: { type: boolean }
+        price: { $ref: '#/components/schemas/Money' }
+    ClubPageApplicationData:
+      type: object
+      required: [name, description]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, minLength: 1, maxLength: 1000 }
+        meeting_place: { type: string, maxLength: 500 }
+        schedule: { type: string, maxLength: 1000 }
+        contacts:
+          type: object
+          additionalProperties: { type: string }
+    Application:
+      type: object
+      required: [id, type, author_user_id, status, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/ApplicationType' }
+        author_user_id: { type: string, format: uuid }
+        club_id: { type: string, format: uuid, nullable: true }
+        event: { $ref: '#/components/schemas/EventApplicationData' }
+        club_page: { $ref: '#/components/schemas/ClubPageApplicationData' }
+        status: { $ref: '#/components/schemas/ApplicationStatus' }
+        moderator_comment: { type: string, nullable: true }
+        result_object_id: { type: string, format: uuid, nullable: true }
+        processed_by: { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+        processed_at: { type: string, format: date-time, nullable: true }
+    ApplicationPage:
+      type: object
+      required: [items, total, page, size]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Application' }
+        total: { type: integer }
+        page: { type: integer }
+        size: { type: integer }
+    ApplicationDecisionRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approve, reject] }
+        comment: { type: string, maxLength: 1000 }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                required: [field, message]
+                properties:
+                  field: { type: string }
+                  message: { type: string }

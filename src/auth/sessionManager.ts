@@ -1,3 +1,5 @@
+import { accessRoles } from './accessRoles';
+
 export type TokenPair = {
   access_token: string;
   refresh_token: string;
@@ -62,6 +64,9 @@ export class SessionManager {
   hasSession(): boolean {
     return this.getRefreshToken() !== null;
   }
+
+  /** UI-only JWT role hint. The API is authoritative for authorization. */
+  getRoles(): string[] { return accessRoles(this.accessToken); }
 
   hasActiveAccess(): boolean {
     return this.accessToken !== null && this.now() + 5000 < this.expiresAt;

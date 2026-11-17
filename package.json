@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20.19.0" },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "vite",
     "predev": "npm run generate:api",
-    "generate:api": "openapi-typescript openapi/identity.yaml -o src/api/generated/identity.d.ts",
+    "generate:api": "openapi-typescript openapi/identity.yaml -o src/api/generated/identity.d.ts && openapi-typescript openapi/moderation.yaml -o src/api/generated/moderation.d.ts",
     "build": "npm run generate:api && tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint .",

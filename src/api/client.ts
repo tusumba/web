@@ -1,5 +1,6 @@
 import createClient from 'openapi-fetch';
 import type { paths } from './generated/identity';
+import type { paths as ModerationPaths } from './generated/moderation';
 import { SessionManager } from '../auth/sessionManager';
 
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
@@ -27,3 +28,9 @@ export function loginMessage(value: unknown): string {
   }
   return 'Не удалось войти. Попробуйте позже.';
 }
+
+/** Moderation API types are generated from openapi/moderation.yaml. */
+export const moderationApi = createClient<ModerationPaths>({
+  baseUrl: apiBaseUrl,
+  fetch: (input, init) => session.authenticatedFetch(input, init),
+});
